@@ -34,7 +34,7 @@ def load_artifacts():
 model, explainer, geojson = load_artifacts()
 
 # -------------------------- Sidebar --------------------------
-st.sidebar.image("https://www.england.nhs.uk/wp-content/themes/nhsengland/img/nhs-logo.png", width=220)
+st.sidebar.image("https://www.england.nhs.uk/wp-content/themes/nhsengland/static/img/nhs-england-white.svg", width=220)
 st.sidebar.markdown("### Navigation")
 page = st.sidebar.radio("Go to", [
     "National Overview",
@@ -154,7 +154,7 @@ elif page == "Recommendations":
 else:
     st.title("About & Methods")
     st.markdown("""
-    - Trained on **639,111** real NHS appointments (Aug 2024 – Aug 2025)  
+    - Trained on **639,111** real NHS appointments (Aug 2024 & Aug 2025)  
     - XGBoost with native categorical handling  
     - Only uses data known at booking time  
     - **Weighted AUC 0.73** on 2025 hold-out  
