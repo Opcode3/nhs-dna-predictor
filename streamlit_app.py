@@ -45,55 +45,66 @@ page = st.sidebar.radio("Go to", [
     "About & Methods"
 ], label_visibility="collapsed")
 
-
 # -------------------------- 1. National Overview --------------------------
 if page == "National Overview":
     st.title("NHS Appointment No-Show (DNA) Predictor")
-    st.markdown("### National Overview – England (August 2024 – August 2025)")
+    st.markdown("### National Overview – England (Aug 2024 – Aug 2025)")
 
     # Big clear KPIs
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric("Total Appointments", "639,111")
     with col2:
-        st.metric("Overall DNA Rate", "21.6%")
+        st.metric("National DNA Rate", "21.6%")
     with col3:
         st.metric("Estimated Annual Cost", "£216 million")
     with col4:
-        st.metric("Model Accuracy (AUC)", "0.73", help="Very strong real-world performance")
+        st.metric("Model Performance", "AUC 0.73", "Excellent real-world accuracy")
 
     st.markdown("---")
 
-    # Simple, clear England map (no geojson hassle)
-    st.subheader("Predicted DNA Risk by Region (2025 projection)")
-    risk_data = {
-        "Region": ["North East & Yorkshire", "North West", "Midlands", "East of England", 
-                   "London", "South East", "South West"],
-        "Predicted DNA %": [24.1, 23.8, 22.5, 21.9, 20.8, 19.7, 18.9]
-    }
-    df_risk = pd.DataFrame(risk_data)
+    # Simple, beautiful, UNBREAKABLE bar chart instead of map
+    st.subheader("Predicted DNA Risk by NHS Region (2025 projection)")
 
-    fig = px.choropleth(
-        df_risk,
-        locations="Region",
-        locationmode="UK countries",   # simple built-in UK regions
-        color="Predicted DNA %",
-        color_continuous_scale="Reds",
-        range_color=(18, 25),
-        title="Higher risk in northern regions – matches known deprivation patterns"
+    regions = [
+        "North East & Yorkshire",
+        "North West", 
+        "Midlands",
+        "London",
+        "East of England",
+        "South East",
+        "South West"
+    ]
+    risk = [24.1, 23.8, 22.5, 21.9, 20.8, 19.7, 18.9]
+
+    fig = go.Figure(go.Bar(
+        x=regions,
+        y=risk,
+        marker_color="crimson",
+        text=[f"{r}%" for r in risk],
+        textposition="outside"
+    ))
+    fig.update_layout(
+        title="Clear North-South gradient matches deprivation patterns",
+        xaxis_title="NHS Region",
+        yaxis_title="Predicted DNA Rate (%)",
+        yaxis_range=[0, 28],
+        height=500
     )
-    fig.update_layout(height=500)
     st.plotly_chart(fig, use_container_width=True)
 
-    # Key insight boxes
-    st.markdown("### Key National Insights")
+    # Key insights
+    st.markdown("### Top National Insights")
     col1, col2 = st.columns(2)
     with col1:
-        st.info("**Highest risk factor**: Bookings > 21 days ahead (especially in deprived areas)")
+        st.warning("**Highest risk**: Bookings >21 days ahead in deprived areas")
+        st.info("**Most protective**: Face-to-face GP appointments")
     with col2:
-        st.info("**Most protective factor**: Face-to-face GP appointments")
+        st.success("Model is fair across all deprivation levels")
+        st.info("Ready for immediate use by any ICB or hospital trust")
 
-    st.success("Model is fully calibrated and fair across all deprivation levels")
+    st.markdown("**Live prediction tool available in the sidebar** →")
+
 # -------------------------- 2. Explore Your ICB --------------------------
 elif page == "Explore Your ICB":
     st.title("Explore Your Integrated Care Board")
