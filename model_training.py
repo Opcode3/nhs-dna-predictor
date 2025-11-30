@@ -5,7 +5,7 @@ from sklearn.metrics import roc_auc_score
 import shap
 import joblib
 
-df = pd.read_csv("data/nhs_appointments_Aug_2023_2024_2025_with_imd.csv")
+df = pd.read_csv("data/nhs_appointments_Aug_2024_2025_with_imd.csv")
 
 # Target
 df['DNA'] = (df['APPT_STATUS'] == 'DNA').astype(int)
