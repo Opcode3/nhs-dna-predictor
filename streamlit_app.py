@@ -11,7 +11,7 @@ st.title("🏥 NHS Appointment No-Show (DNA) Predictor & Equity Dashboard")
 # Load model
 model = xgb.XGBClassifier()
 model.load_model("model/xgb_dna_model.json")
-explainer = joblib.load("model/explainer.pkl")
+explainer = joblib.load("model/shap_explainer.pkl")
 
 # Sidebar
 page = st.sidebar.selectbox("Choose a page", [
