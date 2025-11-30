@@ -121,8 +121,33 @@ elif page == "Live Prediction Tool":
 
         # SHAP waterfall
         shap_vals = explainer.shap_values(input_df)
-        fig = shap.waterfall_plot(explainer.expected_value, shap_vals[0], input_df.iloc[0], max_display=8, show=False)
-        st.pyplot(fig)
+
+        # Beautiful, crash-proof Plotly SHAP waterfall
+        shap_df = pd.DataFrame({
+            "feature": input_df.columns,
+            "value": [str(v) for v in input_df.iloc[0].values],
+            "shap_value": shap_vals[0]
+        }).sort_values(by="shap_value", key=abs, ascending=False).head(10)
+
+        fig = go.Figure(go.Waterfall(
+            orientation="h",
+            y=shap_df["feature"] + " = " + shap_df["value"],
+            x=shap_df["shap_value"],
+            textposition="outside",
+            text=[f"{x:+.3f}" for x in shap_df["shap_value"]],
+            connector={"line":{"color":"gray"}},
+            increasing={"marker":{"color":"#10B981"}},
+            decreasing={"marker":{"color":"#EF4444"}},
+            totals={"marker":{"color":"#F59E0B"}}
+        ))
+
+        fig.add_vline(x=0, line_width=2, line_color="black")
+        fig.update_layout(
+            title=f"SHAP Explanation – Predicted Risk: {risk:.1%}",
+            height=520,
+            margin=dict(l=180)
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
 # -------------------------- 4. Fairness Monitor --------------------------
 elif page == "Fairness & Equity Monitor":
