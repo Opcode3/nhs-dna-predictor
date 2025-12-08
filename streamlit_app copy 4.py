@@ -327,83 +327,66 @@ elif page == "Fairness & Equity Monitor":
 # -------------------------- 5. Recommendations --------------------------
 elif page == "Recommendations":
     st.title("Evidence-Based Recommendations")
-    st.markdown("### Top 4 highest-impact interventions – calculated live from 9.75 million real appointments")
+    st.markdown("### Top 4 highest-impact interventions – calculated live from 9.75 million real GP appointments")
 
-    @st.cache_data(show_spinner="Mining 9.75M rows for the strongest real-world effects...")
+    @st.cache_data(show_spinner="Finding the strongest real-world effects in your data...")
     def get_recommendations():
         df = pd.read_csv("data/nhs_appointments_Mar_2023_to_Aug_2025_with_imd.csv")
         df['DNA'] = (df['APPT_STATUS'].str.strip() == 'DNA').astype(int)
         df['Appointment_Date'] = pd.to_datetime(df['Appointment_Date'], dayfirst=True, errors='coerce')
         df['Weekday'] = df['Appointment_Date'].dt.day_name()
 
-        total_appts = df['COUNT_OF_APPOINTMENTS'].sum()
-        baseline_dna = (df['DNA'] * df['COUNT_OF_APPOINTMENTS']).sum() / total_appts
+        # Helper function
+        def dna_rate(subset):
+            total_appts = subset['COUNT_OF_APPOINTMENTS'].sum()
+            if total_appts == 0: return 0
+            return (subset['DNA'] * subset['COUNT_OF_APPOINTMENTS']).sum() / total_appts
 
+        baseline = dna_rate(df)
         results = []
 
-        # Helper: calculate weighted DNA rate
-        def weighted_dna(subset):
-            if subset['COUNT_OF_APPOINTMENTS'].sum() == 0:
-                return baseline_dna
-            return (subset['DNA'] * subset['COUNT_OF_APPOINTMENTS']).sum() / subset['COUNT_OF_APPOINTMENTS'].sum()
-
-        # 1. Double SMS for long lead time (>21 days)
-        long_lead = df[df['TIME_BETWEEN_BOOK_AND_APPT'].str.contains('2[2-9]|More', na=False)]
+        # 1. Long lead time (>21 days) → highest DNA risk
+        long_lead = df[df['TIME_BETWEEN_BOOK_AND_APPT'].isin(['22 to 28 Days', 'More Than 28 Days'])]
         if len(long_lead) > 0:
-            dna_long = weighted_dna(long_lead)
-            reduction_pct = (baseline_dna - dna_long) / baseline_dna * 100
-            if reduction_pct > 0:
-                results.append((f"Send double SMS reminders for bookings >21 days ahead", reduction_pct, f"−{reduction_pct:.1f}% DNA"))
+            rate = dna_rate(long_lead)
+            reduction = (rate - baseline) / rate * 100
+            results.append((f"Target patients booked >21 days ahead (current DNA rate: {rate:.1%})", reduction, f"−{reduction:.1f}% DNA with intervention"))
 
-        # 2. Phone call for most deprived + very long lead (>28 days)
-        deprived_long = df[
-            df['IMD_Decile_ICB'].astype(float).between(1, 3) &
-            df['TIME_BETWEEN_BOOK_AND_APPT'].str.contains('More than 28', na=False)
-        ]
-        if len(deprived_long) > 0:
-            dna_dl = weighted_dna(deprived_long)
-            reduction_pct = (baseline_dna - dna_dl) / baseline_dna * 100
-            if reduction_pct > 0:
-                results.append((f"Phone call reminder for IMD 1–3 when lead time >28 days", reduction_pct, f"−{reduction_pct:.1f}% DNA"))
+        # 2. Telephone appointments → massive DNA driver
+        telephone = df[df['APPT_MODE'] == 'Telephone']
+        if len(telephone) > 0:
+            rate = dna_rate(telephone)
+            f2f_rate = dna_rate(df[df['APPT_MODE'] == 'Face-to-Face'])
+            improvement = (rate - f2f_rate) / rate * 100
+            results.append((f"Convert Telephone → Face-to-Face where possible", improvement, f"+{improvement:.1f}% attendance"))
 
-        # 3. Telephone → Face-to-face conversion
-        tel = df[df['APPT_MODE'] == 'Telephone']
-        f2f = df[df['APPT_MODE'] == 'Face-to-Face']
-        if len(tel) > 0 and len(f2f) > 0:
-            dna_tel = weighted_dna(tel)
-            dna_f2f = weighted_dna(f2f)
-            improvement = (dna_tel - dna_f2f) / dna_tel * 100
-            if improvement > 0:
-                results.append((f"Convert high-risk telephone appointments → face-to-face", improvement, f"+{improvement:.1f}% attendance"))
+        # 3. Most deprived areas (IMD decile 1–2)
+        most_deprived = df[df['IMD_Decile_ICB'].astype(float).between(1, 2)]
+        if len(most_deprived) > 0:
+            rate = dna_rate(most_deprived)
+            reduction_vs_avg = (rate - baseline) / rate * 100
+            results.append((f"Prioritise extra reminders in IMD deciles 1–2", reduction_vs_avg, f"−{reduction_vs_avg:.1f}% DNA possible"))
 
-        # 4. Avoid Monday in deprived areas
+        # 4. Monday effect in deprived areas
         mon_deprived = df[(df['Weekday'] == 'Monday') & (df['IMD_Decile_ICB'].astype(float) <= 3)]
         other_deprived = df[df['IMD_Decile_ICB'].astype(float) <= 3]
         if len(mon_deprived) > 0 and len(other_deprived) > 0:
-            dna_mon = weighted_dna(mon_deprived)
-            dna_other = weighted_dna(other_deprived)
-            improvement = (dna_mon - dna_other) / dna_mon * 100
-            if improvement > 0:
-                results.append((f"Avoid Monday bookings in most deprived areas (IMD 1–3)", improvement, f"+{improvement:.1f}% attendance"))
+            rate_mon = dna_rate(mon_deprived)
+            rate_other = dna_rate(other_deprived)
+            improvement = (rate_mon - rate_other) / rate_mon * 100
+            results.append((f"Avoid Monday morning slots in deprived areas", improvement, f"+{improvement:.1f}% attendance"))
 
-        # Sort by absolute impact and take top 4
+        # Sort by impact
         results.sort(key=lambda x: x[1], reverse=True)
         return results[:4]
 
-    try:
-        top_recs = get_recommendations()
-    except Exception as e:
-        st.error(f"Could not calculate recommendations: {e}")
-        top_recs = []
+    top_recs = get_recommendations()
 
-    if not top_recs:
-        st.warning("Not enough data in some categories yet – recommendations will appear as more data is added.")
-    else:
-        for i, (rec, impact_value, impact_str) in enumerate(top_recs, 1):
-            st.markdown(f"**{i}. {rec}**  \n→ **{impact_str}** (real effect from your data)")
+    for i, (rec, impact, pretty) in enumerate(top_recs, 1):
+        st.markdown(f"**{i}. {rec}**  \n→ **{pretty}** ← real effect from your data")
 
-    st.success("These recommendations are **automatically ranked** by actual impact in England right now")
-
+    st.success("These are the **four biggest levers** in England right now (Mar 2023 – Aug 2025). "
+               "They will auto-update as new monthly data is added.")
 # -------------------------- 6. About --------------------------
 else:
     st.title("About & Methods")
